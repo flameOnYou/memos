@@ -1,5 +1,5 @@
-import { MessageCircleIcon } from "lucide-react";
-import { useState } from "react";
+import { ArrowUpDownIcon, MessageCircleIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import MemoEditor from "@/components/MemoEditor";
 import MemoView from "@/components/MemoView";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,16 @@ const MemoCommentSection = ({ memo, comments, parentPage }: Props) => {
   const t = useTranslate();
   const currentUser = useCurrentUser();
   const [showEditor, setShowEditor] = useState(false);
+  const [isAscending, setIsAscending] = useState(false);
 
   const showCreateButton = currentUser && !showEditor;
+  const sortedComments = useMemo(() => {
+    if (!isAscending) {
+      return comments;
+    }
+
+    return [...comments].reverse();
+  }, [comments, isAscending]);
 
   const handleCommentCreated = async (_memoCommentName: string) => {
     setShowEditor(false);
@@ -47,11 +55,17 @@ const MemoCommentSection = ({ memo, comments, parentPage }: Props) => {
               <span className="text-muted-foreground text-sm">{t("memo.comment.self")}</span>
               <span className="text-muted-foreground text-sm ml-1">({comments.length})</span>
             </div>
-            {showCreateButton && (
-              <Button variant="ghost" className="text-muted-foreground" onClick={() => setShowEditor(true)}>
-                {t("memo.comment.write-a-comment")}
+            <div className="flex flex-row justify-end items-center gap-1">
+              <Button variant="ghost" className="text-muted-foreground" onClick={() => setIsAscending((prev) => !prev)}>
+                <ArrowUpDownIcon className="w-4 h-auto mr-1" />
+                {isAscending ? t("memo.direction-asc") : t("memo.direction-desc")}
               </Button>
-            )}
+              {showCreateButton && (
+                <Button variant="ghost" className="text-muted-foreground" onClick={() => setShowEditor(true)}>
+                  {t("memo.comment.write-a-comment")}
+                </Button>
+              )}
+            </div>
           </div>
         )}
         {showEditor && (
@@ -66,7 +80,7 @@ const MemoCommentSection = ({ memo, comments, parentPage }: Props) => {
             />
           </div>
         )}
-        {comments.map((comment) => (
+        {sortedComments.map((comment) => (
           <div className="w-full" key={`${comment.name}-${comment.displayTime}`} id={extractMemoIdFromName(comment.name)}>
             <MemoView memo={comment} parentPage={parentPage} showCreator compact />
           </div>
