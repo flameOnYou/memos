@@ -84,17 +84,27 @@ func (d *DB) ListMemoRelations(ctx context.Context, find *store.FindMemoRelation
 		if err != nil {
 			return nil, err
 		}
-		stmt, err := engine.CompileToStatement(ctx, *find.MemoFilter, filter.RenderOptions{
-			Dialect:           filter.DialectPostgres,
-			PlaceholderOffset: len(args),
-		})
-		if err != nil {
-			return nil, err
+		filterOnMemoID := find.RelatedMemoID != nil || len(find.RelatedMemoIDList) > 0
+		filterOnRelatedMemoID := find.MemoID != nil || len(find.SourceMemoIDList) > 0
+		if !filterOnMemoID && !filterOnRelatedMemoID {
+			filterOnMemoID = true
+			filterOnRelatedMemoID = true
 		}
-		if stmt.SQL != "" {
-			where = append(where, fmt.Sprintf("memo_id IN (SELECT id FROM memo WHERE %s)", stmt.SQL))
-			args = append(args, stmt.Args...)
 
+		if filterOnMemoID {
+			stmt, err := engine.CompileToStatement(ctx, *find.MemoFilter, filter.RenderOptions{
+				Dialect:           filter.DialectPostgres,
+				PlaceholderOffset: len(args),
+			})
+			if err != nil {
+				return nil, err
+			}
+			if stmt.SQL != "" {
+				where = append(where, fmt.Sprintf("memo_id IN (SELECT id FROM memo WHERE %s)", stmt.SQL))
+				args = append(args, stmt.Args...)
+			}
+		}
+		if filterOnRelatedMemoID {
 			stmtRelated, err := engine.CompileToStatement(ctx, *find.MemoFilter, filter.RenderOptions{
 				Dialect:           filter.DialectPostgres,
 				PlaceholderOffset: len(args),
