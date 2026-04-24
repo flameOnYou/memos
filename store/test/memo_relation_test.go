@@ -944,3 +944,48 @@ func TestMemoRelationMultipleRelationsToSameMemo(t *testing.T) {
 
 	ts.Close()
 }
+
+func TestMemoRelationFilterWithRelatedMemoIDAppliesToCommentMemo(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	ts := NewTestingStore(ctx, t)
+	user, err := createTestingHostUser(ctx, ts)
+	require.NoError(t, err)
+
+	parentMemo, err := ts.CreateMemo(ctx, &store.Memo{
+		UID:        "parent-memo",
+		CreatorID:  user.ID,
+		Content:    "parent content without topic keyword",
+		Visibility: store.Public,
+	})
+	require.NoError(t, err)
+
+	commentMemo, err := ts.CreateMemo(ctx, &store.Memo{
+		UID:        "comment-memo-topic",
+		CreatorID:  user.ID,
+		Content:    "This is a comment with #topic",
+		Visibility: store.Public,
+	})
+	require.NoError(t, err)
+
+	_, err = ts.UpsertMemoRelation(ctx, &store.MemoRelation{
+		MemoID:        commentMemo.ID,
+		RelatedMemoID: parentMemo.ID,
+		Type:          store.MemoRelationComment,
+	})
+	require.NoError(t, err)
+
+	memoFilter := `content.contains("topic")`
+	commentType := store.MemoRelationComment
+	relations, err := ts.ListMemoRelations(ctx, &store.FindMemoRelation{
+		RelatedMemoID: &parentMemo.ID,
+		Type:          &commentType,
+		MemoFilter:    &memoFilter,
+	})
+	require.NoError(t, err)
+	require.Len(t, relations, 1)
+	require.Equal(t, commentMemo.ID, relations[0].MemoID)
+	require.Equal(t, parentMemo.ID, relations[0].RelatedMemoID)
+
+	ts.Close()
+}

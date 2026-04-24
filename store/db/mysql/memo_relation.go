@@ -83,9 +83,21 @@ func (d *DB) ListMemoRelations(ctx context.Context, find *store.FindMemoRelation
 			return nil, err
 		}
 		if stmt.SQL != "" {
-			where = append(where, fmt.Sprintf("memo_id IN (SELECT id FROM memo WHERE %s)", stmt.SQL))
-			where = append(where, fmt.Sprintf("related_memo_id IN (SELECT id FROM memo WHERE %s)", stmt.SQL))
-			args = append(args, append(stmt.Args, stmt.Args...)...)
+			filterOnMemoID := find.RelatedMemoID != nil || len(find.RelatedMemoIDList) > 0
+			filterOnRelatedMemoID := find.MemoID != nil || len(find.SourceMemoIDList) > 0
+			if !filterOnMemoID && !filterOnRelatedMemoID {
+				filterOnMemoID = true
+				filterOnRelatedMemoID = true
+			}
+
+			if filterOnMemoID {
+				where = append(where, fmt.Sprintf("memo_id IN (SELECT id FROM memo WHERE %s)", stmt.SQL))
+				args = append(args, stmt.Args...)
+			}
+			if filterOnRelatedMemoID {
+				where = append(where, fmt.Sprintf("related_memo_id IN (SELECT id FROM memo WHERE %s)", stmt.SQL))
+				args = append(args, stmt.Args...)
+			}
 		}
 	}
 
