@@ -451,6 +451,11 @@ func (r *renderer) renderContainsCondition(cond *ContainsCondition) (renderResul
 	if !ok {
 		return renderResult{}, errors.Errorf("unknown field %q", cond.Field)
 	}
+
+	if field.Name == "content" && field.Column.Table == "memo" {
+		return r.renderMemoContentContainsCondition(field, cond.Value)
+	}
+
 	column := field.columnExpr(r.dialect)
 	arg := fmt.Sprintf("%%%s%%", cond.Value)
 	switch r.dialect {
@@ -465,6 +470,49 @@ func (r *renderer) renderContainsCondition(cond *ContainsCondition) (renderResul
 	default:
 		sql := fmt.Sprintf("%s LIKE %s", column, r.addArg(arg))
 		return renderResult{sql: sql}, nil
+	}
+}
+
+func (r *renderer) renderMemoContentContainsCondition(field Field, value string) (renderResult, error) {
+	column := field.columnExpr(r.dialect)
+	arg := fmt.Sprintf("%%%s%%", value)
+
+	switch r.dialect {
+	case DialectSQLite:
+		memoMatch := fmt.Sprintf("memos_unicode_lower(%s) LIKE memos_unicode_lower(%s)", column, r.addArg(arg))
+		commentMatch := fmt.Sprintf(`EXISTS (
+SELECT 1
+FROM "memo_relation" AS "comment_relation"
+JOIN "memo" AS "comment_memo" ON "comment_relation"."memo_id" = "comment_memo"."id"
+WHERE "comment_relation"."type" = "COMMENT"
+  AND "comment_relation"."related_memo_id" = "memo"."id"
+  AND memos_unicode_lower("comment_memo"."content") LIKE memos_unicode_lower(%s)
+)`, r.addArg(arg))
+		return renderResult{sql: fmt.Sprintf("(%s OR %s)", memoMatch, commentMatch)}, nil
+	case DialectPostgres:
+		memoMatch := fmt.Sprintf("%s ILIKE %s", column, r.addArg(arg))
+		commentMatch := fmt.Sprintf(`EXISTS (
+SELECT 1
+FROM memo_relation AS comment_relation
+JOIN memo AS comment_memo ON comment_relation.memo_id = comment_memo.id
+WHERE comment_relation.type = 'COMMENT'
+  AND comment_relation.related_memo_id = memo.id
+  AND comment_memo.content ILIKE %s
+)`, r.addArg(arg))
+		return renderResult{sql: fmt.Sprintf("(%s OR %s)", memoMatch, commentMatch)}, nil
+	case DialectMySQL:
+		memoMatch := fmt.Sprintf("%s LIKE %s", column, r.addArg(arg))
+		commentMatch := fmt.Sprintf(`EXISTS (
+SELECT 1
+FROM memo_relation AS comment_relation
+JOIN memo AS comment_memo ON comment_relation.memo_id = comment_memo.id
+WHERE comment_relation.type = 'COMMENT'
+  AND comment_relation.related_memo_id = memo.id
+  AND comment_memo.content LIKE %s
+)`, r.addArg(arg))
+		return renderResult{sql: fmt.Sprintf("(%s OR %s)", memoMatch, commentMatch)}, nil
+	default:
+		return renderResult{}, errors.Errorf("unsupported dialect %s", r.dialect)
 	}
 }
 

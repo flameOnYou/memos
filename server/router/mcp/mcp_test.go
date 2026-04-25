@@ -323,6 +323,39 @@ func TestHandleSearchMemosMatchesMemoUID(t *testing.T) {
 	require.Equal(t, "memos/"+memo.UID, payload[0].Name)
 }
 
+func TestHandleSearchMemosMatchesParentMemoWhenCommentMatches(t *testing.T) {
+	ts := newTestMCPService(t)
+	user := ts.createUser(t, "owner")
+
+	memo := ts.createMemo(t, user.ID, store.Private, "parent memo content")
+	comment, err := ts.store.CreateMemo(context.Background(), &store.Memo{
+		UID:        "commentsearchtoken123",
+		CreatorID:  user.ID,
+		RowStatus:  store.Normal,
+		Visibility: store.Private,
+		Content:    "comment contains #SB token",
+	})
+	require.NoError(t, err)
+
+	_, err = ts.store.UpsertMemoRelation(context.Background(), &store.MemoRelation{
+		MemoID:        comment.ID,
+		RelatedMemoID: memo.ID,
+		Type:          store.MemoRelationComment,
+	})
+	require.NoError(t, err)
+
+	result, err := ts.service.handleSearchMemos(withUser(context.Background(), user.ID), toolRequest("search_memos", map[string]any{
+		"query": "#SB",
+	}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	var payload []memoJSON
+	require.NoError(t, json.Unmarshal([]byte(firstText(t, result)), &payload))
+	require.Len(t, payload, 1)
+	require.Equal(t, "memos/"+memo.UID, payload[0].Name)
+}
+
 func TestHandleListMemoRelationsFiltersUnreadableTargets(t *testing.T) {
 	ts := newTestMCPService(t)
 	owner := ts.createUser(t, "owner")

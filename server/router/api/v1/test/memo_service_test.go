@@ -527,6 +527,42 @@ func TestListMemoCommentsPaginates(t *testing.T) {
 	require.Empty(t, secondPage.NextPageToken)
 }
 
+func TestListMemosMatchesParentMemoWhenCommentMatchesSearch(t *testing.T) {
+	ctx := context.Background()
+
+	ts := NewTestService(t)
+	defer ts.Cleanup()
+
+	owner, err := ts.CreateRegularUser(ctx, "comment-search-owner")
+	require.NoError(t, err)
+	ownerCtx := ts.CreateUserContext(ctx, owner.ID)
+
+	memo, err := ts.Service.CreateMemo(ownerCtx, &apiv1.CreateMemoRequest{
+		Memo: &apiv1.Memo{
+			Content:    "parent memo content",
+			Visibility: apiv1.Visibility_PRIVATE,
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = ts.Service.CreateMemoComment(ownerCtx, &apiv1.CreateMemoCommentRequest{
+		Name: memo.Name,
+		Comment: &apiv1.Memo{
+			Content:    "comment contains #SB token",
+			Visibility: apiv1.Visibility_PRIVATE,
+		},
+	})
+	require.NoError(t, err)
+
+	resp, err := ts.Service.ListMemos(ownerCtx, &apiv1.ListMemosRequest{
+		PageSize: 10,
+		Filter:   `content.contains("#SB")`,
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Memos, 1)
+	require.Equal(t, memo.Name, resp.Memos[0].Name)
+}
+
 // TestCreateMemoWithCustomTimestamps tests that custom timestamps can be set when creating memos and comments.
 // This addresses issue #5483: https://github.com/usememos/memos/issues/5483
 func TestCreateMemoWithCustomTimestamps(t *testing.T) {

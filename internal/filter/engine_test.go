@@ -52,3 +52,20 @@ func TestCompileToStatementSupportsUIDContains(t *testing.T) {
 	require.Len(t, stmt.Args, 1)
 	require.Equal(t, "%searchable%", stmt.Args[0])
 }
+
+func TestCompileToStatementContentContainsIncludesCommentSearch(t *testing.T) {
+	t.Parallel()
+
+	engine, err := NewEngine(NewSchema())
+	require.NoError(t, err)
+
+	stmt, err := engine.CompileToStatement(context.Background(), `content.contains("#SB")`, RenderOptions{
+		Dialect: DialectSQLite,
+	})
+	require.NoError(t, err)
+	require.Contains(t, stmt.SQL, `comment_relation`)
+	require.Contains(t, stmt.SQL, `comment_memo`)
+	require.Len(t, stmt.Args, 2)
+	require.Equal(t, "%#SB%", stmt.Args[0])
+	require.Equal(t, "%#SB%", stmt.Args[1])
+}
