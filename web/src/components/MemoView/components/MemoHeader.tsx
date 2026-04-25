@@ -5,6 +5,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import useNavigateTo from "@/hooks/useNavigateTo";
 import i18n from "@/i18n";
 import { cn } from "@/lib/utils";
+import { extractMemoIdFromName } from "@/helpers/resource-names";
+import copyToClipboard from "copy-to-clipboard";
+import toast from "react-hot-toast";
 import { Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import type { User } from "@/types/proto/api/v1/user_service_pb";
 import { useTranslate } from "@/utils/i18n";
@@ -23,6 +26,11 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
 
   const { memo, creator, currentUser, parentPage, isArchived, readonly, openEditor } = useMemoViewContext();
   const { createTime, updateTime, displayTime: memoDisplayTime, isDisplayingUpdatedTime, relativeTimeFormat } = useMemoViewDerived();
+  const memoId = extractMemoIdFromName(memo.name);
+  const handleCopyMemoId = useCallback(() => {
+    copyToClipboard(memoId);
+    toast.success(`Copied: #${memoId}`);
+  }, [memoId]);
 
   const navigateTo = useNavigateTo();
   const handleGotoMemoDetailPage = useCallback(() => {
@@ -49,6 +57,7 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
   };
 
   return (
+    <TooltipProvider>
     <div className="w-full flex flex-row justify-between items-center gap-2">
       <div className="w-auto max-w-[calc(100%-8rem)] grow flex flex-row justify-start items-center">
         {showCreator && creator ? (
@@ -59,6 +68,21 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
       </div>
 
       <div className="flex flex-row justify-end items-center select-none shrink-0 gap-2">
+        <Tooltip>
+          <TooltipTrigger>
+            <button
+              type="button"
+              onClick={handleCopyMemoId}
+              className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground leading-none cursor-pointer hover:bg-accent/30 transition-colors select-all"
+            >
+              #{memoId}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Copy ID</p>
+          </TooltipContent>
+        </Tooltip>
+
         {currentUser && !isArchived && (
           <ReactionSelector
             className={cn("border-none w-auto h-auto", reactionSelectorOpen && "block!", "block sm:hidden sm:group-hover:block")}
@@ -81,7 +105,6 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
         )}
 
         {showPinned && memo.pinned && (
-          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-pointer">
@@ -92,12 +115,12 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
                 <p>{t("common.unpin")}</p>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
         )}
 
         <MemoActionMenu memo={memo} readonly={readonly} onEdit={openEditor} />
       </div>
     </div>
+    </TooltipProvider>
   );
 };
 
