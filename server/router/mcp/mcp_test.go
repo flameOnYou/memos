@@ -298,6 +298,31 @@ func TestHandleListMemosArchivedOnlyReturnsCreatorMemos(t *testing.T) {
 	require.Empty(t, payload.Memos)
 }
 
+func TestHandleSearchMemosMatchesMemoUID(t *testing.T) {
+	ts := newTestMCPService(t)
+	user := ts.createUser(t, "owner")
+
+	memo, err := ts.store.CreateMemo(context.Background(), &store.Memo{
+		UID:        "memoidsearch123",
+		CreatorID:  user.ID,
+		RowStatus:  store.Normal,
+		Visibility: store.Private,
+		Content:    "content without lookup token",
+	})
+	require.NoError(t, err)
+
+	result, err := ts.service.handleSearchMemos(withUser(context.Background(), user.ID), toolRequest("search_memos", map[string]any{
+		"query": "idsearch123",
+	}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	var payload []memoJSON
+	require.NoError(t, json.Unmarshal([]byte(firstText(t, result)), &payload))
+	require.Len(t, payload, 1)
+	require.Equal(t, "memos/"+memo.UID, payload[0].Name)
+}
+
 func TestHandleListMemoRelationsFiltersUnreadableTargets(t *testing.T) {
 	ts := newTestMCPService(t)
 	owner := ts.createUser(t, "owner")

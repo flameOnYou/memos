@@ -94,6 +94,19 @@ func TestMemoFilterContentCaseSensitivity(t *testing.T) {
 	}
 }
 
+func TestMemoFilterUIDContains(t *testing.T) {
+	t.Parallel()
+	tc := NewMemoFilterTestContext(t)
+	defer tc.Close()
+
+	tc.CreateMemo(NewMemoBuilder("memo-searchable-uid", tc.User.ID).Content("First memo"))
+	tc.CreateMemo(NewMemoBuilder("memo-other", tc.User.ID).Content("Second memo"))
+
+	memos := tc.ListWithFilter(`uid.contains("searchable")`)
+	require.Len(t, memos, 1)
+	require.Equal(t, "memo-searchable-uid", memos[0].UID)
+}
+
 // =============================================================================
 // Visibility Field Tests
 // Schema: visibility (string, ==, !=)

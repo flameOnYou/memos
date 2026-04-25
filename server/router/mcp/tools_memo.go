@@ -235,8 +235,8 @@ func (s *MCPService) registerMemoTools(mcpSrv *mcpserver.MCPServer) {
 	), s.handleDeleteMemo)
 
 	mcpSrv.AddTool(mcp.NewTool("search_memos",
-		readOnlyToolOptions("Search memos", "Search memo content. Authenticated users search their own and visible memos; unauthenticated callers search public memos only.",
-			mcp.WithString("query", mcp.Required(), mcp.Description("Text to search for in memo content")),
+		readOnlyToolOptions("Search memos", "Search memo content and memo IDs. Authenticated users search their own and visible memos; unauthenticated callers search public memos only.",
+			mcp.WithString("query", mcp.Required(), mcp.Description("Text to search for in memo content or memo ID")),
 		)...,
 	), s.handleSearchMemos)
 
@@ -470,7 +470,7 @@ func (s *MCPService) handleSearchMemos(ctx context.Context, req mcp.CallToolRequ
 		RowStatus:       &rowStatus,
 		Limit:           &limit,
 		Offset:          &zero,
-		Filters:         []string{fmt.Sprintf(`content.contains(%q)`, query)},
+		Filters:         []string{fmt.Sprintf(`content.contains(%q) || uid.contains(%q)`, query, query)},
 	}
 	applyVisibilityFilter(find, userID, find.RowStatus)
 

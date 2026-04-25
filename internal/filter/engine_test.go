@@ -37,3 +37,18 @@ func TestCompileRejectsNonBooleanTopLevelConstant(t *testing.T) {
 	_, err = engine.Compile(context.Background(), `1`)
 	require.EqualError(t, err, "filter must evaluate to a boolean value")
 }
+
+func TestCompileToStatementSupportsUIDContains(t *testing.T) {
+	t.Parallel()
+
+	engine, err := NewEngine(NewSchema())
+	require.NoError(t, err)
+
+	stmt, err := engine.CompileToStatement(context.Background(), `uid.contains("searchable")`, RenderOptions{
+		Dialect: DialectSQLite,
+	})
+	require.NoError(t, err)
+	require.Contains(t, stmt.SQL, "memo`.`uid")
+	require.Len(t, stmt.Args, 1)
+	require.Equal(t, "%searchable%", stmt.Args[0])
+}

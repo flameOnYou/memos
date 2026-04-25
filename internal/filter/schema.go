@@ -100,6 +100,14 @@ var nowFunction = cel.Function("now",
 // NewSchema constructs the memo filter schema and CEL environment.
 func NewSchema() Schema {
 	fields := map[string]Field{
+		"uid": {
+			Name:             "uid",
+			Kind:             FieldKindScalar,
+			Type:             FieldTypeString,
+			Column:           Column{Table: "memo", Name: "uid"},
+			SupportsContains: true,
+			Expressions:      map[DialectName]string{},
+		},
 		"content": {
 			Name:             "content",
 			Kind:             FieldKindScalar,
@@ -242,6 +250,7 @@ func NewSchema() Schema {
 	}
 
 	envOptions := []cel.EnvOption{
+		cel.Variable("uid", cel.StringType),
 		cel.Variable("content", cel.StringType),
 		cel.Variable("creator", cel.StringType),
 		cel.Variable("creator_id", cel.IntType),
