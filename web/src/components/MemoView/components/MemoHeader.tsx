@@ -1,13 +1,13 @@
+import copyToClipboard from "copy-to-clipboard";
 import { BookmarkIcon } from "lucide-react";
 import { useCallback, useState } from "react";
+import toast from "react-hot-toast";
 import { Link } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { extractMemoIdFromName } from "@/helpers/resource-names";
 import useNavigateTo from "@/hooks/useNavigateTo";
 import i18n from "@/i18n";
 import { cn } from "@/lib/utils";
-import { extractMemoIdFromName } from "@/helpers/resource-names";
-import copyToClipboard from "copy-to-clipboard";
-import toast from "react-hot-toast";
 import { Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import type { User } from "@/types/proto/api/v1/user_service_pb";
 import { useTranslate } from "@/utils/i18n";
@@ -58,53 +58,53 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
 
   return (
     <TooltipProvider>
-    <div className="w-full flex flex-row justify-between items-center gap-2">
-      <div className="w-auto max-w-[calc(100%-8rem)] grow flex flex-row justify-start items-center">
-        {showCreator && creator ? (
-          <CreatorDisplay creator={creator} displayTime={displayTime} timeTooltip={timeTooltip} onGotoDetail={handleGotoMemoDetailPage} />
-        ) : (
-          <TimeDisplay displayTime={displayTime} timeTooltip={timeTooltip} onGotoDetail={handleGotoMemoDetailPage} />
-        )}
-      </div>
+      <div className="w-full flex flex-row justify-between items-center gap-2">
+        <div className="w-auto max-w-[calc(100%-8rem)] grow flex flex-row justify-start items-center">
+          {showCreator && creator ? (
+            <CreatorDisplay creator={creator} displayTime={displayTime} timeTooltip={timeTooltip} onGotoDetail={handleGotoMemoDetailPage} />
+          ) : (
+            <TimeDisplay displayTime={displayTime} timeTooltip={timeTooltip} onGotoDetail={handleGotoMemoDetailPage} />
+          )}
+        </div>
 
-      <div className="flex flex-row justify-end items-center select-none shrink-0 gap-2">
-        <Tooltip>
-          <TooltipTrigger>
-            <button
-              type="button"
-              onClick={handleCopyMemoId}
-              className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground leading-none cursor-pointer hover:bg-accent/30 transition-colors select-all"
-            >
-              #{memoId}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Copy ID</p>
-          </TooltipContent>
-        </Tooltip>
-
-        {currentUser && !isArchived && (
-          <ReactionSelector
-            className={cn("border-none w-auto h-auto", reactionSelectorOpen && "block!", "block sm:hidden sm:group-hover:block")}
-            memo={memo}
-            onOpenChange={setReactionSelectorOpen}
-          />
-        )}
-
-        {showVisibility && memo.visibility !== Visibility.PRIVATE && (
+        <div className="flex flex-row justify-end items-center select-none shrink-0 gap-2">
           <Tooltip>
             <TooltipTrigger>
-              <span className="flex justify-center items-center rounded-md hover:opacity-80">
-                <VisibilityIcon visibility={memo.visibility} />
-              </span>
+              <button
+                type="button"
+                onClick={handleCopyMemoId}
+                className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground leading-none cursor-pointer hover:bg-accent/30 transition-colors select-all"
+              >
+                #{memoId}
+              </button>
             </TooltipTrigger>
             <TooltipContent>
-              {t(`memo.visibility.${convertVisibilityToString(memo.visibility).toLowerCase()}` as Parameters<typeof t>[0])}
+              <p>Copy ID</p>
             </TooltipContent>
           </Tooltip>
-        )}
 
-        {showPinned && memo.pinned && (
+          {currentUser && !isArchived && (
+            <ReactionSelector
+              className={cn("border-none w-auto h-auto", reactionSelectorOpen && "block!", "block sm:hidden sm:group-hover:block")}
+              memo={memo}
+              onOpenChange={setReactionSelectorOpen}
+            />
+          )}
+
+          {showVisibility && memo.visibility !== Visibility.PRIVATE && (
+            <Tooltip>
+              <TooltipTrigger>
+                <span className="flex justify-center items-center rounded-md hover:opacity-80">
+                  <VisibilityIcon visibility={memo.visibility} />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t(`memo.visibility.${convertVisibilityToString(memo.visibility).toLowerCase()}` as Parameters<typeof t>[0])}
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {showPinned && memo.pinned && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-pointer">
@@ -115,11 +115,11 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
                 <p>{t("common.unpin")}</p>
               </TooltipContent>
             </Tooltip>
-        )}
+          )}
 
-        <MemoActionMenu memo={memo} readonly={readonly} onEdit={openEditor} />
+          <MemoActionMenu memo={memo} readonly={readonly} onEdit={openEditor} />
+        </div>
       </div>
-    </div>
     </TooltipProvider>
   );
 };
