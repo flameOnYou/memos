@@ -476,6 +476,47 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Status'
+    /api/v1/instance/settings/notification:testEmail:
+        post:
+            tags:
+                - InstanceService
+            description: Tests notification email delivery with the provided or stored SMTP settings.
+            operationId: InstanceService_TestInstanceEmailSetting
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/TestInstanceEmailSettingRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/v1/instance/stats:
+        get:
+            tags:
+                - InstanceService
+            description: GetInstanceStats returns resource usage statistics for the instance. Admin only.
+            operationId: InstanceService_GetInstanceStats
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InstanceStats'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
     /api/v1/instance/{instance}/*:
         get:
             tags:
@@ -2660,6 +2701,12 @@ components:
                     items:
                         $ref: '#/components/schemas/InstanceSetting_AIProviderConfig'
                     description: providers is the list of AI provider configurations available instance-wide.
+                transcription:
+                    allOf:
+                        - $ref: '#/components/schemas/InstanceSetting_TranscriptionConfig'
+                    description: |-
+                        transcription is the speech-to-text feature configuration.
+                         When unset or transcription.provider_id is empty, transcription is disabled.
             description: AI provider configuration settings.
         InstanceSetting_GeneralSetting:
             type: object
@@ -2767,6 +2814,52 @@ components:
                          so a single entry like "project/.*" matches all tags under that prefix.
                          Exact tag names are also valid (they are trivially valid regex patterns).
             description: Tag metadata configuration.
+        InstanceSetting_TranscriptionConfig:
+            type: object
+            properties:
+                providerId:
+                    type: string
+                    description: |-
+                        provider_id references an entry in AISetting.providers[].id.
+                         Empty string means transcription is disabled.
+                model:
+                    type: string
+                    description: |-
+                        model is the provider-specific model identifier.
+                         Empty string falls back to the engine default
+                         (whisper-1 for OPENAI providers, gemini-2.5-flash for GEMINI providers).
+                language:
+                    type: string
+                    description: |-
+                        language is the default ISO 639-1 language hint sent to the provider.
+                         Empty string lets the provider auto-detect.
+                prompt:
+                    type: string
+                    description: prompt is a default spelling/vocabulary hint passed to the provider.
+            description: TranscriptionConfig configures the speech-to-text feature.
+        InstanceStats:
+            type: object
+            properties:
+                database:
+                    $ref: '#/components/schemas/InstanceStats_DatabaseStats'
+                localStorageBytes:
+                    type: string
+                    description: Recursive size of the data directory in bytes. -1 if unavailable.
+                generatedTime:
+                    type: string
+                    description: Server-side timestamp when the snapshot was generated.
+                    format: date-time
+            description: Resource usage statistics for the instance.
+        InstanceStats_DatabaseStats:
+            type: object
+            properties:
+                driver:
+                    type: string
+                    description: driver is one of "sqlite", "mysql", "postgres".
+                sizeBytes:
+                    type: string
+                    description: size_bytes is the database size in bytes; -1 if unavailable.
+            description: Database size statistics.
         LinkMetadata:
             type: object
             properties:
@@ -3207,6 +3300,7 @@ components:
                 smtpUsername:
                     type: string
                 smtpPassword:
+                    writeOnly: true
                     type: string
                 fromEmail:
                     type: string
@@ -3447,6 +3541,7 @@ components:
                 accessKeyId:
                     type: string
                 accessKeySecret:
+                    writeOnly: true
                     type: string
                 endpoint:
                     type: string
@@ -3459,20 +3554,22 @@ components:
             description: |-
                 S3 configuration for cloud storage backend.
                  Reference: https://developers.cloudflare.com/r2/examples/aws/aws-sdk-go/
+        TestInstanceEmailSettingRequest:
+            type: object
+            properties:
+                email:
+                    allOf:
+                        - $ref: '#/components/schemas/NotificationSetting_EmailSetting'
+                    description: Optional. SMTP email settings to test. If omitted, the stored notification email setting is used.
+                recipientEmail:
+                    type: string
+                    description: Optional. Recipient email address. If omitted, the current user's email address is used.
+            description: Request message for TestInstanceEmailSetting method.
         TranscribeRequest:
             required:
-                - providerId
-                - config
                 - audio
             type: object
             properties:
-                providerId:
-                    type: string
-                    description: Required. The instance AI provider ID to use.
-                config:
-                    allOf:
-                        - $ref: '#/components/schemas/TranscriptionConfig'
-                    description: Required. Transcription options.
                 audio:
                     allOf:
                         - $ref: '#/components/schemas/TranscriptionAudio'
@@ -3500,15 +3597,6 @@ components:
                 contentType:
                     type: string
                     description: Optional. The MIME type of the input audio.
-        TranscriptionConfig:
-            type: object
-            properties:
-                prompt:
-                    type: string
-                    description: Optional. A prompt to improve transcription quality.
-                language:
-                    type: string
-                    description: Optional. The language of the input audio.
         UpsertMemoReactionRequest:
             required:
                 - name
@@ -3732,6 +3820,15 @@ components:
                         type: string
                         format: date-time
                     description: The creation timestamps of the user's memos.
+                memoUpdatedTimestamps:
+                    type: array
+                    items:
+                        type: string
+                        format: date-time
+                    description: |-
+                        The latest update timestamps of the user's memos (one per memo,
+                         mirrors memo_created_timestamps). Used by the activity heatmap when
+                         the client's view is set to update_time basis.
                 pinnedMemos:
                     type: array
                     items:

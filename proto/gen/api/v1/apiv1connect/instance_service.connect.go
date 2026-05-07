@@ -9,6 +9,7 @@ import (
 	context "context"
 	errors "errors"
 	v1 "github.com/usememos/memos/proto/gen/api/v1"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	http "net/http"
 	strings "strings"
 )
@@ -42,6 +43,12 @@ const (
 	// InstanceServiceUpdateInstanceSettingProcedure is the fully-qualified name of the
 	// InstanceService's UpdateInstanceSetting RPC.
 	InstanceServiceUpdateInstanceSettingProcedure = "/memos.api.v1.InstanceService/UpdateInstanceSetting"
+	// InstanceServiceTestInstanceEmailSettingProcedure is the fully-qualified name of the
+	// InstanceService's TestInstanceEmailSetting RPC.
+	InstanceServiceTestInstanceEmailSettingProcedure = "/memos.api.v1.InstanceService/TestInstanceEmailSetting"
+	// InstanceServiceGetInstanceStatsProcedure is the fully-qualified name of the InstanceService's
+	// GetInstanceStats RPC.
+	InstanceServiceGetInstanceStatsProcedure = "/memos.api.v1.InstanceService/GetInstanceStats"
 )
 
 // InstanceServiceClient is a client for the memos.api.v1.InstanceService service.
@@ -52,6 +59,10 @@ type InstanceServiceClient interface {
 	GetInstanceSetting(context.Context, *connect.Request[v1.GetInstanceSettingRequest]) (*connect.Response[v1.InstanceSetting], error)
 	// Updates an instance setting.
 	UpdateInstanceSetting(context.Context, *connect.Request[v1.UpdateInstanceSettingRequest]) (*connect.Response[v1.InstanceSetting], error)
+	// Tests notification email delivery with the provided or stored SMTP settings.
+	TestInstanceEmailSetting(context.Context, *connect.Request[v1.TestInstanceEmailSettingRequest]) (*connect.Response[emptypb.Empty], error)
+	// GetInstanceStats returns resource usage statistics for the instance. Admin only.
+	GetInstanceStats(context.Context, *connect.Request[v1.GetInstanceStatsRequest]) (*connect.Response[v1.InstanceStats], error)
 }
 
 // NewInstanceServiceClient constructs a client for the memos.api.v1.InstanceService service. By
@@ -83,14 +94,28 @@ func NewInstanceServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(instanceServiceMethods.ByName("UpdateInstanceSetting")),
 			connect.WithClientOptions(opts...),
 		),
+		testInstanceEmailSetting: connect.NewClient[v1.TestInstanceEmailSettingRequest, emptypb.Empty](
+			httpClient,
+			baseURL+InstanceServiceTestInstanceEmailSettingProcedure,
+			connect.WithSchema(instanceServiceMethods.ByName("TestInstanceEmailSetting")),
+			connect.WithClientOptions(opts...),
+		),
+		getInstanceStats: connect.NewClient[v1.GetInstanceStatsRequest, v1.InstanceStats](
+			httpClient,
+			baseURL+InstanceServiceGetInstanceStatsProcedure,
+			connect.WithSchema(instanceServiceMethods.ByName("GetInstanceStats")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // instanceServiceClient implements InstanceServiceClient.
 type instanceServiceClient struct {
-	getInstanceProfile    *connect.Client[v1.GetInstanceProfileRequest, v1.InstanceProfile]
-	getInstanceSetting    *connect.Client[v1.GetInstanceSettingRequest, v1.InstanceSetting]
-	updateInstanceSetting *connect.Client[v1.UpdateInstanceSettingRequest, v1.InstanceSetting]
+	getInstanceProfile       *connect.Client[v1.GetInstanceProfileRequest, v1.InstanceProfile]
+	getInstanceSetting       *connect.Client[v1.GetInstanceSettingRequest, v1.InstanceSetting]
+	updateInstanceSetting    *connect.Client[v1.UpdateInstanceSettingRequest, v1.InstanceSetting]
+	testInstanceEmailSetting *connect.Client[v1.TestInstanceEmailSettingRequest, emptypb.Empty]
+	getInstanceStats         *connect.Client[v1.GetInstanceStatsRequest, v1.InstanceStats]
 }
 
 // GetInstanceProfile calls memos.api.v1.InstanceService.GetInstanceProfile.
@@ -108,6 +133,16 @@ func (c *instanceServiceClient) UpdateInstanceSetting(ctx context.Context, req *
 	return c.updateInstanceSetting.CallUnary(ctx, req)
 }
 
+// TestInstanceEmailSetting calls memos.api.v1.InstanceService.TestInstanceEmailSetting.
+func (c *instanceServiceClient) TestInstanceEmailSetting(ctx context.Context, req *connect.Request[v1.TestInstanceEmailSettingRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.testInstanceEmailSetting.CallUnary(ctx, req)
+}
+
+// GetInstanceStats calls memos.api.v1.InstanceService.GetInstanceStats.
+func (c *instanceServiceClient) GetInstanceStats(ctx context.Context, req *connect.Request[v1.GetInstanceStatsRequest]) (*connect.Response[v1.InstanceStats], error) {
+	return c.getInstanceStats.CallUnary(ctx, req)
+}
+
 // InstanceServiceHandler is an implementation of the memos.api.v1.InstanceService service.
 type InstanceServiceHandler interface {
 	// Gets the instance profile.
@@ -116,6 +151,10 @@ type InstanceServiceHandler interface {
 	GetInstanceSetting(context.Context, *connect.Request[v1.GetInstanceSettingRequest]) (*connect.Response[v1.InstanceSetting], error)
 	// Updates an instance setting.
 	UpdateInstanceSetting(context.Context, *connect.Request[v1.UpdateInstanceSettingRequest]) (*connect.Response[v1.InstanceSetting], error)
+	// Tests notification email delivery with the provided or stored SMTP settings.
+	TestInstanceEmailSetting(context.Context, *connect.Request[v1.TestInstanceEmailSettingRequest]) (*connect.Response[emptypb.Empty], error)
+	// GetInstanceStats returns resource usage statistics for the instance. Admin only.
+	GetInstanceStats(context.Context, *connect.Request[v1.GetInstanceStatsRequest]) (*connect.Response[v1.InstanceStats], error)
 }
 
 // NewInstanceServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -143,6 +182,18 @@ func NewInstanceServiceHandler(svc InstanceServiceHandler, opts ...connect.Handl
 		connect.WithSchema(instanceServiceMethods.ByName("UpdateInstanceSetting")),
 		connect.WithHandlerOptions(opts...),
 	)
+	instanceServiceTestInstanceEmailSettingHandler := connect.NewUnaryHandler(
+		InstanceServiceTestInstanceEmailSettingProcedure,
+		svc.TestInstanceEmailSetting,
+		connect.WithSchema(instanceServiceMethods.ByName("TestInstanceEmailSetting")),
+		connect.WithHandlerOptions(opts...),
+	)
+	instanceServiceGetInstanceStatsHandler := connect.NewUnaryHandler(
+		InstanceServiceGetInstanceStatsProcedure,
+		svc.GetInstanceStats,
+		connect.WithSchema(instanceServiceMethods.ByName("GetInstanceStats")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/memos.api.v1.InstanceService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case InstanceServiceGetInstanceProfileProcedure:
@@ -151,6 +202,10 @@ func NewInstanceServiceHandler(svc InstanceServiceHandler, opts ...connect.Handl
 			instanceServiceGetInstanceSettingHandler.ServeHTTP(w, r)
 		case InstanceServiceUpdateInstanceSettingProcedure:
 			instanceServiceUpdateInstanceSettingHandler.ServeHTTP(w, r)
+		case InstanceServiceTestInstanceEmailSettingProcedure:
+			instanceServiceTestInstanceEmailSettingHandler.ServeHTTP(w, r)
+		case InstanceServiceGetInstanceStatsProcedure:
+			instanceServiceGetInstanceStatsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -170,4 +225,12 @@ func (UnimplementedInstanceServiceHandler) GetInstanceSetting(context.Context, *
 
 func (UnimplementedInstanceServiceHandler) UpdateInstanceSetting(context.Context, *connect.Request[v1.UpdateInstanceSettingRequest]) (*connect.Response[v1.InstanceSetting], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("memos.api.v1.InstanceService.UpdateInstanceSetting is not implemented"))
+}
+
+func (UnimplementedInstanceServiceHandler) TestInstanceEmailSetting(context.Context, *connect.Request[v1.TestInstanceEmailSettingRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("memos.api.v1.InstanceService.TestInstanceEmailSetting is not implemented"))
+}
+
+func (UnimplementedInstanceServiceHandler) GetInstanceStats(context.Context, *connect.Request[v1.GetInstanceStatsRequest]) (*connect.Response[v1.InstanceStats], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("memos.api.v1.InstanceService.GetInstanceStats is not implemented"))
 }
