@@ -49,6 +49,7 @@ WORKDIR /var/opt/memos
 VOLUME /var/opt/memos
 
 ENV TZ="UTC" \
+    MEMOS_ADDR="0.0.0.0" \
     MEMOS_PORT="5230"
 
 EXPOSE 5230

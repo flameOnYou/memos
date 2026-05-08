@@ -9,6 +9,7 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1pb "github.com/usememos/memos/proto/gen/api/v1"
 	"github.com/usememos/memos/server/auth"
@@ -211,7 +212,7 @@ func (s *MCPService) registerMemoTools(mcpSrv *mcpserver.MCPServer) {
 	), s.handleCreateMemo)
 
 	mcpSrv.AddTool(mcp.NewTool("update_memo",
-		updateToolOptions("Update memo", "Update a memo's content, visibility, pin state, or archive state. Requires authentication and ownership. Omit any field to leave it unchanged.",
+		updateToolOptions("Update memo", "Update a memo's content, visibility, pin state, archive state, or timestamps. Requires authentication and ownership. Omit any field to leave it unchanged.",
 			mcp.WithString("name", mcp.Required(), mcp.Description(`Memo resource name, e.g. "memos/abc123"`)),
 			mcp.WithString("content", mcp.Description("New Markdown content")),
 			mcp.WithString("visibility",
@@ -223,6 +224,8 @@ func (s *MCPService) registerMemoTools(mcpSrv *mcpserver.MCPServer) {
 				mcp.Enum("NORMAL", "ARCHIVED"),
 				mcp.Description("Set to ARCHIVED to archive, NORMAL to restore"),
 			),
+			mcp.WithNumber("create_time", mcp.Description("Unix epoch timestamp (seconds) to set as the memo's creation time")),
+			mcp.WithNumber("update_time", mcp.Description("Unix epoch timestamp (seconds) to set as the memo's update time")),
 			mcp.WithOutputSchema[memoJSON](),
 		)...,
 	), s.handleUpdateMemo)
@@ -417,6 +420,20 @@ func (s *MCPService) handleUpdateMemo(ctx context.Context, req mcp.CallToolReque
 	if _, ok := args["pinned"]; ok {
 		update.Pinned = req.GetBool("pinned", false)
 		updateMask.Paths = append(updateMask.Paths, "pinned")
+	}
+	if _, ok := args["create_time"]; ok {
+		createTs := req.GetInt("create_time", 0)
+		if createTs > 0 {
+			update.CreateTime = &timestamppb.Timestamp{Seconds: int64(createTs)}
+			updateMask.Paths = append(updateMask.Paths, "create_time")
+		}
+	}
+	if _, ok := args["update_time"]; ok {
+		updateTs := req.GetInt("update_time", 0)
+		if updateTs > 0 {
+			update.UpdateTime = &timestamppb.Timestamp{Seconds: int64(updateTs)}
+			updateMask.Paths = append(updateMask.Paths, "update_time")
+		}
 	}
 
 	if len(updateMask.Paths) == 0 {
